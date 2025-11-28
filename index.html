@@ -3,235 +3,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Detector & Suara</title>
+    <title>Face AI V17 - Snapshot & Themes</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Memuat face-api.js dari CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     <style>
-        /* Efek Console Log ala Hacker */
-        .console-text {
-            font-family: 'Courier New', Courier, monospace;
+        :root {
+            --primary-color: #4ade80; /* Default Green */
+            --primary-glow: rgba(74, 222, 128, 0.5);
         }
-        /* Scrollbar kustom */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #1f2937;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #4ade80;
-            border-radius: 4px;
-        }
-        /* Positioning canvas di atas video */
-        #video-container {
+        
+        .camera-wrapper {
             position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
+        #raw-video { display: none; }
+        #output-canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            background-color: #000; 
         }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
+        /* Animasi Flash Kamera */
+        @keyframes flash-animation {
+            0% { opacity: 0; }
+            20% { opacity: 1; background: white; }
+            100% { opacity: 0; }
+        }
+        .flash-overlay {
+            position: absolute; inset: 0; pointer-events: none; z-index: 60;
+            animation: flash-animation 0.3s ease-out forwards;
+        }
+
+        /* Dynamic Theme Text Color */
+        .text-theme { color: var(--primary-color); }
+        .border-theme { border-color: var(--primary-color); }
+        .bg-theme { background-color: var(--primary-color); }
+        .shadow-theme { box-shadow: 0 0 20px var(--primary-glow); }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-gray-900 text-white font-sans min-h-screen flex flex-col transition-colors duration-500">
 
-    <!-- Header -->
-    <div class="text-center mb-6">
-        <h1 class="text-3xl font-bold text-green-400 mb-2">AI Face Detector</h1>
-        <p class="text-gray-400 text-sm">Pastikan volume aktif untuk mendengar suara notifikasi.</p>
+    <!-- Navbar -->
+    <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700 p-3 sticky top-0 z-50 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-camera-retro text-theme transition-colors duration-300"></i>
+            <h1 class="font-bold text-sm md:text-lg">FaceGuard <span class="text-[10px] bg-gray-700 px-2 py-0.5 rounded text-gray-300 ml-1">V17 PRO</span></h1>
+        </div>
+        <div id="status-text" class="text-xs font-mono text-gray-400 font-bold">SYSTEM READY</div>
+    </nav>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="fixed inset-0 bg-gray-900 z-[100] flex flex-col items-center justify-center p-6 text-center">
+        <button onclick="firstStart()" class="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center border-2 border-theme hover:scale-110 transition-transform mb-4 shadow-theme group relative overflow-hidden">
+            <div class="absolute inset-0 bg-theme opacity-10 group-hover:opacity-20 transition-opacity"></div>
+            <i class="fas fa-play text-4xl text-theme ml-1"></i>
+        </button>
+        <h2 class="text-xl font-bold">Mulai Sistem V17</h2>
+        <p class="text-xs text-gray-500 mt-2 max-w-xs">Fitur Baru: Snapshot Foto & Ganti Tema Warna.</p>
     </div>
 
-    <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-6xl">
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 flex flex-col gap-4 max-w-4xl">
         
-        <!-- Kolom Kiri: Video Feed -->
-        <div class="flex flex-col items-center">
-            <div id="video-container" class="rounded-lg overflow-hidden shadow-2xl border-2 border-green-500 bg-black w-full max-w-md aspect-[4/3] relative">
-                <!-- Loading Spinner -->
-                <div id="loading" class="absolute inset-0 flex items-center justify-center bg-gray-900 z-50">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
-                    <span class="ml-3 text-green-500 font-mono animate-pulse">Memuat Model AI...</span>
-                </div>
-                
-                <video id="video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay muted playsinline></video>
-                <!-- Canvas akan di-inject oleh script di sini -->
-            </div>
+        <div class="flex flex-col md:flex-row gap-4">
             
-            <div class="mt-4 flex gap-2">
-                <div id="status-indicator" class="px-4 py-2 rounded bg-red-600 text-white font-bold transition-colors duration-300">
-                    Tidak Ada Wajah
+            <!-- KIRI: Kamera -->
+            <div class="flex-1 relative">
+                <div class="camera-wrapper border border-gray-700 group" id="cam-container">
+                    <video id="raw-video" playsinline muted autoplay></video>
+                    <canvas id="output-canvas"></canvas>
+
+                    <!-- Flash Layer -->
+                    <div id="flash-layer"></div>
+
+                    <!-- Status Badge -->
+                    <div class="absolute top-3 left-3 z-10">
+                        <span id="status-badge" class="bg-red-600/90 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur">
+                            OFFLINE
+                        </span>
+                    </div>
+
+                    <!-- KONTROL KAMERA (Floating Buttons) -->
+                    <div class="absolute top-3 right-3 z-50 flex flex-col gap-2">
+                        <!-- Power Button -->
+                        <button onclick="togglePower()" id="btn-power" title="Power ON/OFF" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center backdrop-blur transition-all shadow-lg scale-100 active:scale-95">
+                            <i class="fas fa-power-off text-sm"></i>
+                        </button>
+
+                        <!-- Extra Controls (Hidden when OFF) -->
+                        <div id="extra-controls" class="flex flex-col gap-2 hidden transition-all duration-300">
+                            <!-- Switch Camera -->
+                            <button onclick="switchCamera()" title="Ganti Kamera" class="bg-black/40 hover:bg-black/70 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center backdrop-blur border border-white/10 active:scale-95">
+                                <i class="fas fa-sync-alt text-sm"></i>
+                            </button>
+                            
+                            <!-- Change Theme -->
+                            <button onclick="toggleTheme()" title="Ganti Tema Warna" class="bg-black/40 hover:bg-black/70 text-theme p-2 rounded-full w-10 h-10 flex items-center justify-center backdrop-blur border border-white/10 active:scale-95 transition-colors">
+                                <i class="fas fa-palette text-sm"></i>
+                            </button>
+
+                            <!-- Snapshot -->
+                            <button onclick="takeSnapshot()" title="Ambil Foto" class="bg-white/90 hover:bg-white text-black p-2 rounded-full w-10 h-10 flex items-center justify-center shadow-lg active:scale-95 mt-2">
+                                <i class="fas fa-camera text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Loading -->
+                    <div id="loading-spinner" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-30 hidden">
+                        <div class="w-10 h-10 border-4 border-theme border-t-transparent rounded-full animate-spin mb-2 transition-colors"></div>
+                        <span class="text-theme text-xs font-mono transition-colors">SYSTEM START...</span>
+                    </div>
+                    
+                    <!-- Layar Hitam (OFF State) -->
+                    <div id="off-screen" class="absolute inset-0 bg-black z-20 flex flex-col items-center justify-center hidden">
+                        <i class="fas fa-power-off text-gray-800 text-6xl"></i>
+                        <span class="text-gray-700 text-xs mt-4 font-mono">SYSTEM STANDBY</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KANAN: Panel Stats -->
+            <div class="w-full md:w-64 flex flex-col gap-3">
+                <!-- Counter Box -->
+                <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 flex flex-col items-center justify-center h-full min-h-[150px] relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    
+                    <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2 z-10">Total Wajah</h3>
+                    
+                    <div class="flex items-baseline z-10">
+                        <span id="big-counter" class="text-6xl font-black text-white tracking-tighter transition-all duration-300">0</span>
+                    </div>
+
+                    <div id="active-indicator" class="mt-4 flex items-center gap-2 opacity-0 transition-opacity duration-500">
+                        <div class="w-2 h-2 bg-theme rounded-full animate-pulse transition-colors"></div>
+                        <span class="text-[10px] text-theme font-mono transition-colors">Live Tracking</span>
+                    </div>
+                </div>
+
+                <!-- Log Box -->
+                <div class="bg-black rounded-lg border border-gray-800 p-2 h-32 overflow-y-auto font-mono text-[10px] space-y-1 scrollbar-hide" id="sys-log">
+                    <div class="text-gray-500">> Klik tombol Mulai...</div>
                 </div>
             </div>
         </div>
 
-        <!-- Kolom Kanan: System Log -->
-        <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-xl flex flex-col h-[400px] lg:h-auto">
-            <div class="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
-                <h2 class="text-green-400 font-mono text-lg flex items-center">
-                    <span class="mr-2">$_</span> SYSTEM LOG
-                </h2>
-                <button onclick="clearLogs()" class="text-xs text-gray-400 hover:text-white underline">Bersihkan</button>
-            </div>
-            <div id="console-logs" class="flex-1 overflow-y-auto font-mono text-xs space-y-1 p-2 bg-black rounded border border-gray-700 text-green-500/80">
-                <!-- Log akan muncul di sini -->
-                <div class="text-yellow-500">[SYSTEM] Menunggu inisialisasi...</div>
-            </div>
-        </div>
-    </div>
+    </main>
 
     <script>
-        const video = document.getElementById('video');
-        const videoContainer = document.getElementById('video-container');
-        const loadingScreen = document.getElementById('loading');
-        const statusIndicator = document.getElementById('status-indicator');
-        const logContainer = document.getElementById('console-logs');
+        // --- Config ---
+        const CONFIDENCE_THRESHOLD = 0.65;
+        const GRACE_PERIOD_MS = 500;
+        const LOG_LIMIT = 20;
 
-        let isModelLoaded = false;
-        let isFaceDetectedState = false; // State tracking untuk mencegah spam suara
-        let canvas;
+        // --- Themes ---
+        const THEMES = [
+            { name: 'Neon Green', color: '#4ade80', glow: 'rgba(74, 222, 128, 0.5)' }, // Default
+            { name: 'Cyber Blue', color: '#22d3ee', glow: 'rgba(34, 211, 238, 0.5)' },
+            { name: 'Alert Red',  color: '#f87171', glow: 'rgba(248, 113, 113, 0.5)' },
+            { name: 'Gold Prime', color: '#facc15', glow: 'rgba(250, 204, 21, 0.5)' }
+        ];
+        let currentThemeIdx = 0;
 
-        // URL Model (menggunakan GitHub Pages dari pembuat face-api.js agar stabil)
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        // --- Audio ---
+        const audioFound = new Audio('https://files.catbox.moe/5fvi1g.mp3');
+        const audioLost = new Audio('https://files.catbox.moe/2un54s.mp3');
+        const shutterSound = new Audio('data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YRAAAACAgICAgICAgICAgICAgIA='); // Dummy silent init
+        audioFound.volume = 1.0; audioLost.volume = 1.0;
 
-        // Fungsi Log ke Layar
-        function addLog(message, type = 'info') {
-            const time = new Date().toLocaleTimeString();
+        // --- Elements ---
+        const video = document.getElementById('raw-video');
+        const canvas = document.getElementById('output-canvas');
+        const ctx = canvas.getContext('2d');
+        const sysLog = document.getElementById('sys-log');
+        const statusBadge = document.getElementById('status-badge');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const bigCounter = document.getElementById('big-counter');
+        const activeIndicator = document.getElementById('active-indicator');
+        const navStatus = document.getElementById('status-text');
+        const startScreen = document.getElementById('start-screen');
+        const offScreen = document.getElementById('off-screen');
+        const btnPower = document.getElementById('btn-power');
+        const extraControls = document.getElementById('extra-controls');
+        const flashLayer = document.getElementById('flash-layer');
+
+        // --- Logic Vars ---
+        let faceDetection = null;
+        let isSystemActive = false;
+        let isPoweredOn = false;
+        let lastDetections = [];
+        let isFaceCurrentlyDetected = false;
+        let lossTimer = null; 
+        let isSwitchingCamera = false;
+        let currentFacingMode = 'user';
+        let lastAudioTime = 0;
+        let aiInterval = null;
+
+        // --- Theme Logic ---
+        function toggleTheme() {
+            currentThemeIdx = (currentThemeIdx + 1) % THEMES.length;
+            const theme = THEMES[currentThemeIdx];
+            
+            // Update CSS Variables
+            document.documentElement.style.setProperty('--primary-color', theme.color);
+            document.documentElement.style.setProperty('--primary-glow', theme.glow);
+            
+            uiLog(`Tema diubah ke: ${theme.name}`, `text-[${theme.color}]`);
+        }
+
+        // --- Snapshot Logic ---
+        function takeSnapshot() {
+            if (!isSystemActive) return;
+            
+            // 1. Flash Effect
+            const flash = document.createElement('div');
+            flash.className = 'flash-overlay';
+            flashLayer.appendChild(flash);
+            setTimeout(() => flash.remove(), 500);
+
+            // 2. Capture Logic
+            const snapCanvas = document.createElement('canvas');
+            snapCanvas.width = canvas.width;
+            snapCanvas.height = canvas.height;
+            const snapCtx = snapCanvas.getContext('2d');
+
+            // Draw current canvas state (Video + Box)
+            snapCtx.drawImage(canvas, 0, 0);
+            
+            // 3. Download
+            const link = document.createElement('a');
+            link.download = `FaceGuard_Snap_${Date.now()}.jpg`;
+            link.href = snapCanvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+            
+            uiLog("Snapshot disimpan!", "text-white font-bold");
+        }
+
+        // --- Log & Audio ---
+        function playAudio(type) {
+            const now = Date.now();
+            if (now - lastAudioTime < 1000) return;
+            audioFound.pause(); audioFound.currentTime = 0;
+            audioLost.pause(); audioLost.currentTime = 0;
+            const sound = type === 'found' ? audioFound : audioLost;
+            sound.play().catch(() => {});
+            lastAudioTime = now;
+        }
+
+        function uiLog(msg, color) {
+            if (sysLog.children.length >= LOG_LIMIT) {
+                sysLog.innerHTML = '';
+                const clearedDiv = document.createElement('div');
+                clearedDiv.className = "text-gray-600 border-b border-gray-800 pb-1 italic";
+                clearedDiv.innerText = "> Log Auto-Cleared";
+                sysLog.appendChild(clearedDiv);
+            }
             const div = document.createElement('div');
-            
-            if (type === 'error') div.className = 'text-red-500';
-            else if (type === 'success') div.className = 'text-green-400 font-bold';
-            else if (type === 'warn') div.className = 'text-yellow-400';
-            else div.className = 'text-green-500/80';
-
-            div.innerHTML = `<span class="opacity-50">[${time}]</span> ${message}`;
-            logContainer.appendChild(div);
-            logContainer.scrollTop = logContainer.scrollHeight; // Auto scroll ke bawah
-        }
-
-        function clearLogs() {
-            logContainer.innerHTML = '';
-            addLog('Log dibersihkan.', 'warn');
-        }
-
-        // Fungsi Text-to-Speech (Suara Google)
-        function speak(text) {
-            if (!window.speechSynthesis) {
-                addLog("Browser tidak mendukung Text-to-Speech", 'error');
-                return;
+            // Jika color mengandung hex, pakai style inline, jika class pakai className
+            if (color.startsWith('#')) {
+                div.style.color = color;
+                div.className = `border-b border-gray-800 pb-1`;
+            } else {
+                div.className = `${color} border-b border-gray-800 pb-1`;
             }
-
-            // Batalkan suara sebelumnya agar tidak tumpang tindih
-            window.speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'id-ID'; // Bahasa Indonesia
-            utterance.rate = 1; // Kecepatan normal
-            utterance.pitch = 1;
-            
-            // Fallback jika suara ID tidak ditemukan, gunakan default
-            const voices = window.speechSynthesis.getVoices();
-            const indoVoice = voices.find(v => v.lang.includes('id'));
-            if (indoVoice) utterance.voice = indoVoice;
-
-            window.speechSynthesis.speak(utterance);
-            addLog(`🔊 Audio: "${text}"`, 'warn');
+            div.innerHTML = `<span class="text-gray-600 mr-2">[${new Date().toLocaleTimeString('id-ID', {hour12:false})}]</span>${msg}`;
+            sysLog.prepend(div);
         }
 
-        // 1. Memuat Model AI
-        async function loadModels() {
-            addLog("Memulai memuat model TinyFaceDetector...", 'info');
+        // --- Start & Power ---
+        async function firstStart() {
+            startScreen.style.display = 'none';
+            loadingSpinner.classList.remove('hidden');
             try {
-                // Kita load TinyFaceDetector (ringan) dan FaceLandmark (untuk kotak wajah)
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                if (!faceDetection) {
+                    faceDetection = new FaceDetection({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`});
+                    faceDetection.setOptions({ model: 'short', minDetectionConfidence: CONFIDENCE_THRESHOLD });
+                    faceDetection.onResults(onAiResult);
+                    await faceDetection.initialize();
+                }
+                audioFound.play().then(() => audioFound.pause()).catch(()=>{});
+                turnSystemOn();
+            } catch (e) { alert("Error Init: " + e.message); location.reload(); }
+        }
+
+        function togglePower() {
+            if (isPoweredOn) turnSystemOff();
+            else turnSystemOn();
+        }
+
+        async function turnSystemOn() {
+            if (isPoweredOn) return;
+            isPoweredOn = true;
+            
+            offScreen.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            
+            // Tombol Hijau
+            btnPower.innerHTML = '<i class="fas fa-power-off"></i>';
+            btnPower.className = "bg-green-500 hover:bg-green-400 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center backdrop-blur transition-all shadow-lg scale-110 z-50 cursor-pointer border border-green-400/50";
+            
+            // Show Extra Controls
+            extraControls.classList.remove('hidden');
+            
+            uiLog("Menyalakan Sistem...", "text-green-400");
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+                });
+                video.srcObject = stream;
+                await new Promise(r => video.onloadedmetadata = r);
+                await video.play();
+
+                loadingSpinner.classList.add('hidden');
+                isSystemActive = true;
                 
-                isModelLoaded = true;
-                addLog("Model AI berhasil dimuat!", 'success');
-                loadingScreen.style.display = 'none';
-                startVideo();
-            } catch (error) {
-                console.error(error);
-                addLog("Gagal memuat model. Cek koneksi internet.", 'error');
-                loadingScreen.innerHTML = '<span class="text-red-500">Gagal memuat model. Refresh halaman.</span>';
+                requestAnimationFrame(renderLoop);
+                if (aiInterval) clearInterval(aiInterval);
+                aiInterval = setInterval(async () => {
+                     if (isSystemActive && video.readyState === 4 && !isSwitchingCamera) {
+                         try { await faceDetection.send({image: video}); } catch (e) {}
+                     }
+                }, 100);
+                uiLog("Sistem ON.", "text-green-400");
+            } catch (e) {
+                alert("Gagal menyalakan kamera: " + e.message);
+                turnSystemOff();
             }
         }
 
-        // 2. Mengakses Webcam
-        function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: {} })
-                .then(stream => {
-                    video.srcObject = stream;
-                    addLog("Webcam aktif.", 'success');
-                })
-                .catch(err => {
-                    console.error(err);
-                    addLog("Gagal akses kamera: " + err, 'error');
-                    loadingScreen.style.display = 'flex';
-                    loadingScreen.innerHTML = '<span class="text-red-500">Izin kamera ditolak.</span>';
-                });
+        function turnSystemOff() {
+            if (!isPoweredOn) return;
+            isPoweredOn = false;
+            isSystemActive = false;
+
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            if (aiInterval) clearInterval(aiInterval);
+
+            // Layar Hitam
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            offScreen.classList.remove('hidden');
+            
+            // Tombol Merah
+            btnPower.className = "bg-red-600 hover:bg-red-500 text-white p-2 rounded-full w-10 h-10 flex items-center justify-center backdrop-blur transition-all shadow-lg scale-100 z-50 cursor-pointer border border-red-400/50";
+            
+            // Hide Extra Controls
+            extraControls.classList.add('hidden');
+
+            statusBadge.innerText = "OFFLINE";
+            statusBadge.className = "bg-red-600/90 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg backdrop-blur";
+            navStatus.innerText = "SYSTEM OFF";
+            navStatus.className = "text-xs font-mono text-gray-400 font-bold";
+            bigCounter.innerText = "0";
+            bigCounter.style.color = 'white';
+            activeIndicator.style.opacity = '0';
+
+            uiLog("Sistem Dimatikan.", "text-red-500");
         }
 
-        // 3. Event Listener saat Video Play
-        video.addEventListener('play', () => {
-            // Membuat Canvas Overlay
-            canvas = faceapi.createCanvasFromMedia(video);
-            videoContainer.append(canvas);
+        // --- Switch Camera ---
+        async function switchCamera() {
+            if (isSwitchingCamera || !isSystemActive) return;
+            isSwitchingCamera = true;
+            loadingSpinner.classList.remove('hidden');
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+                });
+                video.srcObject = stream;
+                await new Promise(r => video.onloadedmetadata = r);
+                await video.play();
+                loadingSpinner.classList.add('hidden');
+                isSwitchingCamera = false;
+            } catch (err) {
+                try {
+                    const fallback = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: false });
+                    video.srcObject = fallback;
+                    await new Promise(r => video.onloadedmetadata = r);
+                    await video.play();
+                    loadingSpinner.classList.add('hidden');
+                    isSwitchingCamera = false;
+                } catch (e) { alert("Error Switch"); isSwitchingCamera=false; }
+            }
+        }
+
+        // --- AI Logic ---
+        function onAiResult(results) {
+            if (!isSystemActive) return;
+            lastDetections = results.detections;
+            const count = lastDetections.length;
+
+            bigCounter.innerText = count;
             
-            const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
-            faceapi.matchDimensions(canvas, displaySize);
-
-            // Perbaiki ukuran canvas saat window di resize
-            const updateCanvasSize = () => {
-                const rect = video.getBoundingClientRect();
-                faceapi.matchDimensions(canvas, { width: rect.width, height: rect.height });
-            };
+            // Dynamic Color for Counter based on Theme
+            const currentColor = THEMES[currentThemeIdx].color;
             
-            // Loop Deteksi
-            setInterval(async () => {
-                if (!isModelLoaded) return;
-
-                // Memastikan ukuran canvas sinkron dengan video visual
-                const displayedSize = { width: video.clientWidth, height: video.clientHeight };
-                faceapi.matchDimensions(canvas, displayedSize);
-
-                // Deteksi Wajah
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-                
-                // Menggambar kotak deteksi
-                const resizedDetections = faceapi.resizeResults(detections, displayedSize);
-                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                faceapi.draw.drawDetections(canvas, resizedDetections);
-
-                // Logika Status & Suara
-                if (detections.length > 0) {
-                    if (!isFaceDetectedState) {
-                        // Perubahan Status: Tidak Ada -> Ada
-                        statusIndicator.innerText = "WAJAH TERDETEKSI";
-                        statusIndicator.className = "px-4 py-2 rounded bg-green-600 text-white font-bold transition-colors duration-300 shadow-lg shadow-green-500/50";
-                        addLog(`Wajah terdeteksi! (Score: ${Math.round(detections[0].score * 100)}%)`, 'success');
-                        speak("Wajah terdeteksi");
-                        isFaceDetectedState = true;
-                    }
-                } else {
-                    if (isFaceDetectedState) {
-                        // Perubahan Status: Ada -> Tidak Ada
-                        statusIndicator.innerText = "WAJAH TAK TERDETEKSI";
-                        statusIndicator.className = "px-4 py-2 rounded bg-red-600 text-white font-bold transition-colors duration-300";
-                        addLog("Wajah hilang dari pandangan.", 'warn');
-                        speak("Wajah tak terdeteksi");
-                        isFaceDetectedState = false;
-                    }
+            if (count > 0) {
+                bigCounter.style.color = currentColor;
+                bigCounter.classList.add('scale-110');
+                activeIndicator.style.opacity = '1';
+                if (lossTimer) { clearTimeout(lossTimer); lossTimer = null; }
+                if (!isFaceCurrentlyDetected) {
+                    isFaceCurrentlyDetected = true;
+                    handleStateChange(true, currentColor);
                 }
+            } else {
+                bigCounter.style.color = 'white';
+                bigCounter.classList.remove('scale-110');
+                activeIndicator.style.opacity = '0';
+                if (isFaceCurrentlyDetected && !lossTimer) {
+                    lossTimer = setTimeout(() => {
+                        isFaceCurrentlyDetected = false;
+                        handleStateChange(false, currentColor);
+                        lossTimer = null;
+                    }, GRACE_PERIOD_MS); 
+                }
+            }
+        }
 
-            }, 200); // Cek setiap 200ms
-        });
+        function handleStateChange(isDetected, themeColor) {
+            if (isDetected) {
+                statusBadge.style.backgroundColor = '#22c55e'; // Always green for locked status
+                statusBadge.innerText = "TARGET LOCKED";
+                navStatus.innerText = "WAJAH TERDETEKSI";
+                navStatus.style.color = themeColor;
+                navStatus.className = "text-xs font-mono font-bold animate-pulse";
+                playAudio('found');
+                uiLog("Wajah Terdeteksi", themeColor);
+            } else {
+                statusBadge.style.backgroundColor = '#dc2626';
+                statusBadge.innerText = "SEARCHING...";
+                navStatus.innerText = "MENCARI SUBJEK...";
+                navStatus.style.color = '#9ca3af'; // gray
+                navStatus.className = "text-xs font-mono font-bold";
+                playAudio('lost');
+                uiLog("Wajah Hilang", "text-red-400");
+            }
+        }
 
-        // Start
-        // Pre-load voices for Chrome bug
-        window.speechSynthesis.getVoices();
-        loadModels();
+        // --- Render ---
+        function renderLoop() {
+            if (!isSystemActive) return;
+            if (video.readyState === 4 && !isSwitchingCamera) {
+                if (canvas.width !== video.videoWidth) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                }
+                ctx.save();
+                if (currentFacingMode === 'user') {
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+                if (lastDetections.length > 0) drawCorners(lastDetections);
+            }
+            requestAnimationFrame(renderLoop);
+        }
 
+        function drawCorners(dets) {
+            const currentColor = THEMES[currentThemeIdx].color;
+
+            dets.forEach(det => {
+                const box = det.boundingBox;
+                let x = box.xCenter * canvas.width - (box.width * canvas.width / 2);
+                if (currentFacingMode === 'user') x = canvas.width - (x + (box.width * canvas.width)); 
+                const y = box.yCenter * canvas.height - (box.height * canvas.height / 2);
+                const w = box.width * canvas.width;
+                const h = box.height * canvas.height;
+                const cl = Math.min(w, h) * 0.25;
+
+                ctx.strokeStyle = currentColor;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.shadowColor = currentColor;
+                ctx.shadowBlur = 15;
+                
+                ctx.beginPath();
+                ctx.moveTo(x, y + cl); ctx.lineTo(x, y); ctx.lineTo(x + cl, y);
+                ctx.moveTo(x + w - cl, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + cl);
+                ctx.moveTo(x + w, y + h - cl); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - cl, y + h);
+                ctx.moveTo(x + cl, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - cl);
+                ctx.stroke();
+
+                ctx.shadowBlur = 0; 
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(x, y - 24, 60, 20);
+                
+                ctx.fillStyle = currentColor;
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText(`ID: ${(det.score*100).toFixed(0)}%`, x + 5, y - 10);
+            });
+        }
     </script>
 </body>
 </html>
+
 

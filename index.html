@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face AI V17 - Snapshot & Themes</title>
+    <title>Face Detector v1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -55,9 +55,9 @@
     <nav class="bg-gray-800/90 backdrop-blur border-b border-gray-700 p-3 sticky top-0 z-50 flex justify-between items-center">
         <div class="flex items-center gap-2">
             <i class="fas fa-camera-retro text-theme transition-colors duration-300"></i>
-            <h1 class="font-bold text-sm md:text-lg">FaceGuard <span class="text-[10px] bg-gray-700 px-2 py-0.5 rounded text-gray-300 ml-1">V17 PRO</span></h1>
+            <h1 class="font-bold text-sm md:text-lg">FaceDetector <span class="text-[10px] bg-gray-700 px-2 py-0.5 rounded text-gray-300 ml-1">V1 Beta</span></h1>
         </div>
-        <div id="status-text" class="text-xs font-mono text-gray-400 font-bold">SYSTEM READY</div>
+        <div id="status-text" class="text-xs font-mono text-gray-400 font-bold">System Start</div>
     </nav>
 
     <!-- Start Screen -->
@@ -66,8 +66,8 @@
             <div class="absolute inset-0 bg-theme opacity-10 group-hover:opacity-20 transition-opacity"></div>
             <i class="fas fa-play text-4xl text-theme ml-1"></i>
         </button>
-        <h2 class="text-xl font-bold">Mulai Sistem V17</h2>
-        <p class="text-xs text-gray-500 mt-2 max-w-xs">Fitur Baru: Snapshot Foto & Ganti Tema Warna.</p>
+        <h2 class="text-xl font-bold">Start System Now! </h2>
+        <p class="text-xs text-gray-500 mt-2 max-w-xs">Create By Marr, Enjoy! </p>
     </div>
 
     <!-- Main Content -->
@@ -126,7 +126,7 @@
                     <!-- Layar Hitam (OFF State) -->
                     <div id="off-screen" class="absolute inset-0 bg-black z-20 flex flex-col items-center justify-center hidden">
                         <i class="fas fa-power-off text-gray-800 text-6xl"></i>
-                        <span class="text-gray-700 text-xs mt-4 font-mono">SYSTEM STANDBY</span>
+                        <span class="text-gray-700 text-xs mt-4 font-mono">SYSTEM OFF</span>
                     </div>
                 </div>
             </div>
@@ -137,7 +137,7 @@
                 <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 flex flex-col items-center justify-center h-full min-h-[150px] relative overflow-hidden group">
                     <div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-10 transition-opacity"></div>
                     
-                    <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2 z-10">Total Wajah</h3>
+                    <h3 class="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2 z-10">Total Wajah Terdeteksi</h3>
                     
                     <div class="flex items-baseline z-10">
                         <span id="big-counter" class="text-6xl font-black text-white tracking-tighter transition-all duration-300">0</span>
@@ -162,7 +162,7 @@
         // --- Config ---
         const CONFIDENCE_THRESHOLD = 0.65;
         const GRACE_PERIOD_MS = 500;
-        const LOG_LIMIT = 20;
+        const LOG_LIMIT = 30;
 
         // --- Themes ---
         const THEMES = [
@@ -240,7 +240,7 @@
             
             // 3. Download
             const link = document.createElement('a');
-            link.download = `FaceGuard_Snap_${Date.now()}.jpg`;
+            link.download = `FaceDetector_Snap_${Date.now()}.jpg`;
             link.href = snapCanvas.toDataURL('image/jpeg', 0.9);
             link.click();
             
